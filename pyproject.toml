@@ -1,0 +1,36 @@
+[tool.poetry]
+name = "whisper-desktop"
+version = "0.1.0"
+description = "Cross-platform offline voice dictation using faster-whisper (CPU)"
+authors = ["beltramejp <beltramejp@example.com>"]
+readme = "README.md"
+license = "MIT"
+packages = [{ include = "src", from = "." }]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+  "Topic :: Multimedia :: Sound/Audio :: Speech",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+customtkinter = "^5.2.2"
+sounddevice = "^0.5.1"
+scipy = ">=1.13,<2.0"
+faster-whisper = "^1.1.0"
+platformdirs = "^4.0"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.5.0"
+pyinstaller = "^6.0"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.0"
+
+[build-system]
+requires = ["poetry-core>=1.9.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 99
+target-version = "py312"
