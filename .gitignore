@@ -1,0 +1,25 @@
+# Virtual envs
+venv/
+venv-win/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# IDE
+.idea/
+.vscode/
+
+# PyInstaller build output
+build/
+dist/
+*.spec
+
+# macOS
+.DS_Store
+
+# OS caches
+Thumbs.db
