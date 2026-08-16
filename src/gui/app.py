@@ -1,4 +1,5 @@
 """Desktop GUI for Whisper Desktop (CustomTkinter)."""
+
 from __future__ import annotations
 
 import queue
@@ -7,8 +8,10 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 
 from ..audio.recorder import AudioRecorder
+from ..config import AppConfig
 from ..whisper_engine.engine import Transcription, WhisperWorker
 from ..whisper_engine.settings import Settings
+from .settings_window import SettingsWindow
 
 _STATUS_IDLE = "Idle"
 _STATUS_RECORDING = "Recording…"
@@ -21,14 +24,19 @@ _MODEL_STOP = "⏹ Stop Recording"
 class GUIApp(ctk.CTk):
     """Main application window."""
 
-    def __init__(self, settings: Settings | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        config: AppConfig | None = None,
+    ) -> None:
         super().__init__()
         self.title("Whisper Desktop — Voice Dictation")
         self.geometry("640x480")
         self.minsize(520, 380)
 
         self.settings = settings or Settings()
-        self.recorder = AudioRecorder()
+        self.config = config or AppConfig()
+        self.recorder = AudioRecorder(device=self.config.input_device_id)
         self._jobs: "queue.Queue[str | None]" = queue.Queue()
         self._results: "queue.Queue[Transcription]" = queue.Queue()
         self.worker = WhisperWorker(self.settings, self._jobs, self._results)
@@ -52,6 +60,11 @@ class GUIApp(ctk.CTk):
             controls, text=_MODEL_START, command=self._on_toggle_record, width=170
         )
         self.record_button.pack(side="right", padx=12, pady=10)
+
+        self.settings_button = ctk.CTkButton(
+            controls, text="⚙ Settings", command=self._open_settings, width=90
+        )
+        self.settings_button.pack(side="right", padx=(0, 4), pady=10)
 
         self.textbox = ctk.CTkTextbox(self, wrap="word", font=("", 15))
         self.textbox.pack(fill="both", expand=True, padx=16, pady=(8, 8))
@@ -102,6 +115,15 @@ class GUIApp(ctk.CTk):
         self.record_button.configure(state="disabled", text=_MODEL_START)
         self.status_label.configure(text=_STATUS_TRANSCRIBING)
         self._jobs.put(path)
+
+    # ---- settings -------------------------------------------------------------
+    def _open_settings(self) -> None:
+        SettingsWindow(self, self.config, self._on_settings_saved)
+
+    def _on_settings_saved(self, input_device_id: int | None) -> None:
+        self.config.input_device_id = input_device_id
+        self.config.save()
+        self.recorder.select_device(input_device_id)
 
     # ---- result polling (runs on the Tk main thread) ----------------------
     def _poll_results(self) -> None:
