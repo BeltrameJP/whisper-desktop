@@ -22,3 +22,4 @@ This folder records the key technical decisions for Whisper Desktop, the rationa
 | 0009 | Deployment model: native desktop app (not server) | Accepted |
 | 0010 | Microphone selection with persisted settings | Accepted |
 | 0011 | Pre-commit hook running ruff | Accepted |
+| 0012 | CI/CD with GitHub Actions | Accepted |
