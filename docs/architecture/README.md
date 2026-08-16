@@ -23,3 +23,4 @@ This folder records the key technical decisions for Whisper Desktop, the rationa
 | 0010 | Microphone selection with persisted settings | Accepted |
 | 0011 | Pre-commit hook running ruff | Accepted |
 | 0012 | CI/CD with GitHub Actions | Accepted |
+| 0013 | CI performance: fast ruff gate and dependency caching | Accepted |
