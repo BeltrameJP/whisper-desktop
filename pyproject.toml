@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "whisper-desktop"
-version = "0.1.0"
+version = "0.2.0"
 description = "Cross-platform offline voice dictation using faster-whisper (CPU)"
 authors = ["beltramejp <beltramejp@example.com>"]
 readme = "README.md"
@@ -34,3 +34,8 @@ build-backend = "poetry.core.masonry.api"
 [tool.ruff]
 line-length = 99
 target-version = "py312"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

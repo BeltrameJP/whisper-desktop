@@ -6,6 +6,7 @@ The GUI communicates with this worker through two queues:
 
 The model is loaded lazily on the first transcription so the window opens fast.
 """
+
 from __future__ import annotations
 
 import os
@@ -30,9 +31,9 @@ class Transcription:
 class WhisperWorker(threading.Thread):
     """Consumes WAV paths from ``jobs`` and emits results to ``results``."""
 
-    def __init__(self, settings: Settings,
-                 jobs: "Queue[str | None]",
-                 results: "Queue[Transcription]") -> None:
+    def __init__(
+        self, settings: Settings, jobs: "Queue[str | None]", results: "Queue[Transcription]"
+    ) -> None:
         super().__init__(daemon=True)
         self.settings = settings
         self.jobs = jobs
@@ -71,7 +72,8 @@ class WhisperWorker(threading.Thread):
             )
         except Exception as exc:  # surface errors to the GUI
             return Transcription(
-                text="", language=None,
+                text="",
+                language=None,
                 elapsed_seconds=round(time.monotonic() - started, 2),
                 error=str(exc),
             )

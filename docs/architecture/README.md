@@ -20,3 +20,5 @@ This folder records the key technical decisions for Whisper Desktop, the rationa
 | 0007 | License: MIT | Accepted |
 | 0008 | Temp & cache paths via `tempfile` + `platformdirs` | Accepted |
 | 0009 | Deployment model: native desktop app (not server) | Accepted |
+| 0010 | Microphone selection with persisted settings | Accepted |
+| 0011 | Pre-commit hook running ruff | Accepted |

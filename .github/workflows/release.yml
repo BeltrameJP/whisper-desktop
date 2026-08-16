@@ -1,0 +1,167 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x64
+            os: windows-latest
+            artifact: WhisperDesktop-windows-x64.exe
+          - platform: linux
+            os: ubuntu-latest
+            artifact: WhisperDesktop-linux
+          - platform: macos-arm64
+            os: macos-14
+            artifact: WhisperDesktop-macOS-arm64.zip
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: "2.4.1"
+          virtualenvs-in-project: true
+
+      - name: Install dependencies
+        run: poetry install --with dev --no-interaction
+
+      - name: Install Linux system deps
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libportaudio2
+
+      - name: Install macOS system deps
+        if: runner.os == 'macOS'
+        run: brew install portaudio
+
+      - name: Clean previous build output
+        shell: bash
+        run: rm -rf dist build
+
+      - name: Build with PyInstaller (Windows / Linux)
+        if: runner.os != 'macOS'
+        run: >
+          poetry run pyinstaller --onefile --name WhisperDesktop
+          --collect-all faster_whisper
+          --collect-all ctranslate2
+          --collect-all sounddevice
+          --collect-all scipy
+          --collect-all tkinter
+          main.py
+
+      - name: Build with PyInstaller (macOS .app)
+        if: runner.os == 'macOS'
+        run: poetry run pyinstaller --noconfirm WhisperDesktop.spec
+
+      - name: Package macOS app bundle
+        if: runner.os == 'macOS'
+        shell: bash
+        run: cd dist && ditto -c -k --sequesterRsrc --keepParent WhisperDesktop.app "${{ matrix.artifact }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}
+          path: dist/${{ matrix.artifact }}
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.versions.outputs.version }}
+      next_version: ${{ steps.versions.outputs.next_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute versions
+        id: versions
+        shell: bash
+        run: |
+          version=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['tool']['poetry']['version'])")
+          major=$(echo "$version" | cut -d. -f1)
+          minor=$(echo "$version" | cut -d. -f2)
+          patch=$(echo "$version" | cut -d. -f3)
+          next="$major.$minor.$((patch + 1))"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "next_version=$next" >> "$GITHUB_OUTPUT"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.versions.outputs.version }}
+          name: v${{ steps.versions.outputs.version }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            release/WhisperDesktop-windows-x64.exe
+            release/WhisperDesktop-linux
+            release/WhisperDesktop-macOS-arm64.zip
+
+  bump-version:
+    name: Open version-bump PR
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version and open PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          next="${{ needs.release.outputs.next_version }}"
+          branch="chore/bump-version-$next"
+
+          git checkout -b "$branch"
+
+          python - "$next" <<'EOF'
+          import sys, tomllib, pathlib
+          next_version = sys.argv[1]
+          path = pathlib.Path("pyproject.toml")
+          data = tomllib.loads(path.read_text())
+          current = data["tool"]["poetry"]["version"]
+          text = path.read_text()
+          text = text.replace(f'version = "{current}"', f'version = "{next_version}"', 1)
+          path.write_text(text)
+          EOF
+
+          git add pyproject.toml
+          git commit -m "[Chore] Update version to $next"
+          git push -u origin "$branch"
+
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "[Chore] Update version to $next" \
+            --body "Automatically opened by the release workflow after publishing v${{ needs.release.outputs.version }}."
+
