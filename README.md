@@ -43,6 +43,11 @@ You can also package it as a standalone executable (no Python install needed) us
 
 The produced app lands in the `dist/` folder.
 
+> **macOS Gatekeeper:** releases are unsigned/not-notarized. If macOS blocks the app on first launch, right-click it and choose **Open** (then confirm), or run:
+> ```bash
+> xattr -d com.apple.quarantine /Applications/WhisperDesktop.app
+> ```
+
 ## Project layout
 
 ```

@@ -63,12 +63,24 @@ jobs:
 
       - name: Build with PyInstaller (macOS .app)
         if: runner.os == 'macOS'
-        run: poetry run pyinstaller --noconfirm WhisperDesktop.spec
+        run: >
+          poetry run pyinstaller --windowed --onedir --name WhisperDesktop
+          --collect-all faster_whisper
+          --collect-all ctranslate2
+          --collect-all sounddevice
+          --collect-all scipy
+          --collect-all tkinter
+          main.py
 
       - name: Package macOS app bundle
         if: runner.os == 'macOS'
         shell: bash
         run: cd dist && ditto -c -k --sequesterRsrc --keepParent WhisperDesktop.app "${{ matrix.artifact }}"
+
+      - name: Rename binary
+        if: runner.os != 'macOS'
+        shell: bash
+        run: mv dist/WhisperDesktop* dist/${{ matrix.artifact }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
