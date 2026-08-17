@@ -11,14 +11,18 @@ import customtkinter as ctk
 
 from ..audio import devices
 from ..config import AppConfig
+from .level_meter import LevelMeter, level_to_rms, rms_to_level
 
 
 class SettingsWindow(ctk.CTkToplevel):
     """A modal dialog to edit and persist application settings.
 
-    ``on_save`` is invoked with the chosen ``input_device_id`` (int or ``None``)
-    when the user confirms; the caller is responsible for persisting the config
-    and applying the change to the recorder.
+    ``on_save`` is invoked with the edited :class:`AppConfig` when the user
+    confirms; the caller is responsible for persisting it and applying the
+    changes (e.g. to the recorder).
+
+    ``recorder`` is used to run a live level meter while the dialog is open;
+    it may be ``None`` (e.g. in tests) to disable monitoring.
     """
 
     def __init__(
@@ -26,24 +30,32 @@ class SettingsWindow(ctk.CTkToplevel):
         master: ctk.CTk,
         config: AppConfig,
         on_save,
+        recorder=None,
     ) -> None:
         super().__init__(master)
         self.title("Settings")
-        self.geometry("560x360")
-        self.minsize(500, 300)
+        self.geometry("560x460")
+        self.minsize(500, 380)
         self.transient(master)
         self.grab_set()
 
-        self.config = config
+        self._working = AppConfig(
+            input_device_id=config.input_device_id,
+            live_mode=config.live_mode,
+            live_threshold=config.live_threshold,
+        )
         self._on_save = on_save
+        self._recorder = recorder
         self._input_devices = devices.grouped_input_devices()
         self._selected_index = config.input_device_id
         self._current_page = "voice"
         self._nav_buttons: dict[str, ctk.CTkButton] = {}
+        self._poll_job = None
 
         self.protocol("WM_DELETE_WINDOW", self._cancel)
         self._build_layout()
         self._show_page("voice")
+        self._start_monitoring()
 
     # ---- layout -----------------------------------------------------------
     def _build_layout(self) -> None:
@@ -100,6 +112,42 @@ class SettingsWindow(ctk.CTkToplevel):
         )
         subtitle.pack(anchor="w", padx=16, pady=(0, 16))
 
+        self._live_var = ctk.BooleanVar(value=bool(self._working.live_mode))
+        live_row = ctk.CTkFrame(self.content, fg_color="transparent")
+        live_row.pack(anchor="w", padx=16, pady=6)
+        live_switch = ctk.CTkSwitch(live_row, text="Live transcription", variable=self._live_var)
+        live_switch.pack(side="left", padx=(0, 12))
+        live_hint = ctk.CTkLabel(
+            self.content,
+            text="Stream text while you speak. Off = transcribe on stop.",
+            font=("", 11),
+            text_color="gray",
+        )
+        live_hint.pack(anchor="w", padx=16, pady=(0, 8))
+
+        sens_heading = ctk.CTkLabel(
+            self.content,
+            text="Input sensitivity",
+            font=("", 13, "bold"),
+        )
+        sens_heading.pack(anchor="w", padx=16, pady=(12, 4))
+        sens_hint = ctk.CTkLabel(
+            self.content,
+            text="Drag the marker just above your silence level; speech above it is captured.",
+            font=("", 11),
+            text_color="gray",
+        )
+        sens_hint.pack(anchor="w", padx=16, pady=(0, 8))
+
+        self.level_meter = LevelMeter(
+            self.content,
+            width=320,
+            height=26,
+            threshold=self._working.live_threshold,
+            on_change=self._on_threshold_change,
+        )
+        self.level_meter.pack(anchor="w", padx=16, pady=4)
+
         row = ctk.CTkFrame(self.content, fg_color="transparent")
         row.pack(anchor="w", padx=16, pady=6)
         ctk.CTkLabel(row, text="Microphone:").pack(side="left", padx=(0, 12))
@@ -140,10 +188,43 @@ class SettingsWindow(ctk.CTkToplevel):
         if any(d.index == index for d in self._input_devices):
             self._selected_index = index
 
+    # ---- level meter / monitoring ---------------------------------------------
+    def _on_threshold_change(self, level: float) -> None:
+        self._working.live_threshold = level
+        if self._recorder is not None:
+            self._recorder.energy_threshold = level_to_rms(level)
+
+    def _start_monitoring(self) -> None:
+        if self._recorder is None:
+            return
+        if not self._recorder.is_recording:
+            try:
+                self._recorder.monitor()
+            except Exception:
+                pass  # monitoring is best-effort
+        self._poll_job = self.after(100, self._poll_level)
+
+    def _poll_level(self) -> None:
+        if self._recorder is not None:
+            self.level_meter.set_level(rms_to_level(self._recorder.last_rms))
+        self._poll_job = self.after(100, self._poll_level)
+
+    def _stop_monitoring(self) -> None:
+        if self._poll_job is not None:
+            self.after_cancel(self._poll_job)
+            self._poll_job = None
+        if self._recorder is not None:
+            self._recorder.stop_monitor()
+
     # ---- actions -------------------------------------------------------------
     def _save(self) -> None:
-        self._on_save(self._selected_index)
+        self._working.input_device_id = self._selected_index
+        self._working.live_mode = bool(self._live_var.get())
+        self._working.live_threshold = self.level_meter.threshold
+        self._stop_monitoring()
+        self._on_save(self._working)
         self.destroy()
 
     def _cancel(self) -> None:
+        self._stop_monitoring()
         self.destroy()

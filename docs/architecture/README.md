@@ -25,3 +25,4 @@ This folder records the key technical decisions for Whisper Desktop, the rationa
 | 0012 | CI/CD with GitHub Actions | Accepted |
 | 0013 | CI performance: fast ruff gate and dependency caching | Accepted |
 | 0014 | Live/streaming transcription via buffered chunks (mimicked async) | Proposed |
+| 0015 |  ADR 0015 — Multi-language dictation with on-demand model download | Proposed |

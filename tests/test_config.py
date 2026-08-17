@@ -10,6 +10,21 @@ from src.config import AppConfig
 def test_defaults_when_no_file(tmp_path) -> None:
     config = AppConfig().load(tmp_path)
     assert config.input_device_id is None
+    assert config.live_mode is True
+    assert config.live_threshold == 0.25
+
+
+def test_live_threshold_round_trip(tmp_path) -> None:
+    AppConfig(live_threshold=0.3).save(tmp_path)
+    loaded = AppConfig().load(tmp_path)
+    assert loaded.live_threshold == 0.3
+
+
+def test_live_threshold_clamped_to_range(tmp_path) -> None:
+    (tmp_path / "config.json").write_text(json.dumps({"live_threshold": 1.7}), encoding="utf-8")
+    assert AppConfig().load(tmp_path).live_threshold == 1.0
+    (tmp_path / "config.json").write_text(json.dumps({"live_threshold": -0.4}), encoding="utf-8")
+    assert AppConfig().load(tmp_path).live_threshold == 0.0
 
 
 def test_round_trip(tmp_path) -> None:
@@ -17,6 +32,24 @@ def test_round_trip(tmp_path) -> None:
     config.save(tmp_path)
     loaded = AppConfig().load(tmp_path)
     assert loaded.input_device_id == 3
+
+
+def test_live_mode_round_trip_false(tmp_path) -> None:
+    AppConfig(live_mode=False).save(tmp_path)
+    loaded = AppConfig().load(tmp_path)
+    assert loaded.live_mode is False
+
+
+def test_live_mode_null_falls_back_to_default(tmp_path) -> None:
+    (tmp_path / "config.json").write_text(json.dumps({"live_mode": None}), encoding="utf-8")
+    loaded = AppConfig().load(tmp_path)
+    assert loaded.live_mode is True
+
+
+def test_live_mode_string_false_is_false(tmp_path) -> None:
+    (tmp_path / "config.json").write_text(json.dumps({"live_mode": "false"}), encoding="utf-8")
+    loaded = AppConfig().load(tmp_path)
+    assert loaded.live_mode is False
 
 
 def test_missing_file_returns_defaults(tmp_path) -> None:

@@ -24,9 +24,19 @@ class AppConfig:
 
     ``input_device_id`` is the integer index of the selected input device as
     reported by sounddevice, or ``None`` to use the system default.
+
+    ``live_mode`` selects live (streaming) transcription when ``True`` and
+    one-shot (transcribe-on-stop) when ``False``. It defaults to on.
+
+    ``live_threshold`` is the input-sensitivity silence threshold as a
+    normalized 0-1 level (Discord-style level meter marker). It defaults to
+    0.25, low enough that normal speech is detected out-of-the-box while the
+    user can drag it in Settings.
     """
 
     input_device_id: int | None = None
+    live_mode: bool = True
+    live_threshold: float = 0.25
 
     def _config_path(self, base_dir: str | Path | None = None) -> Path:
         base = Path(base_dir) if base_dir else Path(user_config_dir(_APP_DIR))
@@ -64,6 +74,8 @@ class AppConfig:
         if merged["input_device_id"] is not None and merged["input_device_id"] < 0:
             merged["input_device_id"] = None
 
+        merged["live_threshold"] = min(1.0, max(0.0, merged["live_threshold"]))
+
         return type(self)(**merged)
 
     @staticmethod
@@ -71,10 +83,20 @@ class AppConfig:
         """Coerce a raw JSON value to the field's type, using the default's type."""
         default_type = type(default)
         if default_type is not type(None):
+            if default_type is bool:
+                # ``bool("false")`` is ``True``; map common string/other
+                # representations so a hand-edited file is parsed correctly.
+                if isinstance(value, str):
+                    return value.strip().lower() in {"1", "true", "yes", "on"}
+                return bool(value)
             return default_type(value)
         # ``None`` default: guess from the annotation's non-None member.
         for member in getattr(annotation, "__args__", ()):
             if member is not type(None):
+                if member is bool:
+                    if isinstance(value, str):
+                        return value.strip().lower() in {"1", "true", "yes", "on"}
+                    return bool(value)
                 return member(value)
         return value
 
