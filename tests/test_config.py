@@ -34,6 +34,21 @@ def test_round_trip(tmp_path) -> None:
     assert loaded.input_device_id == 3
 
 
+def test_language_default_is_none(tmp_path) -> None:
+    assert AppConfig().load(tmp_path).language is None
+
+
+def test_language_round_trip(tmp_path) -> None:
+    AppConfig(language="pt").save(tmp_path)
+    loaded = AppConfig().load(tmp_path)
+    assert loaded.language == "pt"
+
+
+def test_language_null_falls_back_to_default(tmp_path) -> None:
+    (tmp_path / "config.json").write_text(json.dumps({"language": None}), encoding="utf-8")
+    assert AppConfig().load(tmp_path).language is None
+
+
 def test_live_mode_round_trip_false(tmp_path) -> None:
     AppConfig(live_mode=False).save(tmp_path)
     loaded = AppConfig().load(tmp_path)

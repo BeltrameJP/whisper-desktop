@@ -30,6 +30,7 @@ from queue import Queue
 
 from faster_whisper import WhisperModel
 
+from .downloader import model_download_root
 from .settings import Settings
 
 _REFINE_BEAM_SIZE = 8
@@ -99,6 +100,7 @@ class WhisperWorker(threading.Thread):
                 self.settings.model_size,
                 device=self.settings.device,
                 compute_type=self.settings.compute_type,
+                download_root=str(model_download_root(self.settings.model_size)),
             )
         return self._model
 

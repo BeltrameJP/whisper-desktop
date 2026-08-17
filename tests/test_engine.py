@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from queue import Queue
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from src.whisper_engine.engine import Job, Transcription, WhisperWorker, _strip_overlap
 from src.whisper_engine.settings import Settings
@@ -24,10 +24,10 @@ def _fake_model(segments: list[str]) -> MagicMock:
     return model
 
 
-def _worker(model) -> tuple[WhisperWorker, Queue, Queue]:
+def _worker(model, settings: Settings | None = None) -> tuple[WhisperWorker, Queue, Queue]:
     jobs: Queue = Queue()
     results: Queue = Queue()
-    worker = WhisperWorker(Settings(), jobs, results)
+    worker = WhisperWorker(settings or Settings(), jobs, results)
     worker._model = model  # avoid loading a real model
     return worker, jobs, results
 
@@ -95,6 +95,28 @@ def test_one_shot_emits_full_text_and_resets_context() -> None:
     assert r.text == "full sentence"
     assert worker._running_text == ""
     assert "condition_on_previous_text" not in model.transcribe.call_args.kwargs
+
+
+# ---- model loading -------------------------------------------------------
+def test_load_model_uses_download_root(tmp_path) -> None:
+    settings = Settings(model_size="base", language="pt")
+    jobs: Queue = Queue()
+    results: Queue = Queue()
+    worker = WhisperWorker(settings, jobs, results)
+
+    fake = MagicMock()
+    with (
+        patch("src.whisper_engine.engine.WhisperModel", return_value=fake) as whisper_cls,
+        patch("src.whisper_engine.engine.model_download_root", return_value=tmp_path / "base"),
+    ):
+        loaded = worker._load_model()
+
+    assert loaded is fake
+    call = whisper_cls.call_args
+    assert call.args[0] == "base"
+    assert call.kwargs["download_root"] == str(tmp_path / "base")
+    assert call.kwargs["device"] == "cpu"
+    assert call.kwargs["compute_type"] == "int8"
 
 
 # ---- errors --------------------------------------------------------------
