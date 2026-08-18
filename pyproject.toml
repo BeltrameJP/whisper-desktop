@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "whisper-desktop"
-version = "0.3.0"
+version = "0.4.0"
 description = "Cross-platform offline voice dictation using faster-whisper (CPU)"
 authors = ["beltramejp <beltramejp@example.com>"]
 readme = "README.md"
