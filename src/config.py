@@ -37,6 +37,7 @@ class AppConfig:
     input_device_id: int | None = None
     live_mode: bool = True
     live_threshold: float = 0.25
+    language: str | None = None
 
     def _config_path(self, base_dir: str | Path | None = None) -> Path:
         base = Path(base_dir) if base_dir else Path(user_config_dir(_APP_DIR))

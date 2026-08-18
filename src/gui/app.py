@@ -10,6 +10,7 @@ import customtkinter as ctk
 from ..audio.recorder import AudioRecorder
 from ..config import AppConfig
 from ..whisper_engine.engine import Job, Transcription, WhisperWorker
+from ..whisper_engine.languages import model_for_language
 from ..whisper_engine.settings import Settings
 from .level_meter import level_to_rms
 from .settings_window import SettingsWindow
@@ -158,6 +159,24 @@ class GUIApp(ctk.CTk):
         self.recorder.select_device(config.input_device_id)
         self.recorder.live = config.live_mode
         self.recorder.energy_threshold = level_to_rms(config.live_threshold)
+
+        new_settings = Settings(
+            model_size=model_for_language(config.language),
+            language=config.language,
+        )
+        if (new_settings.model_size, new_settings.language) != (
+            self.settings.model_size,
+            self.settings.language,
+        ):
+            self._restart_worker(new_settings)
+
+    def _restart_worker(self, settings: Settings) -> None:
+        """Stop the current worker and start a fresh one with new settings."""
+        self._jobs.put(None)
+        self.worker.join(timeout=5)
+        self.settings = settings
+        self.worker = WhisperWorker(settings, self._jobs, self._results)
+        self.worker.start()
 
     # ---- result polling (runs on the Tk main thread) ----------------------
     def _poll_results(self) -> None:
