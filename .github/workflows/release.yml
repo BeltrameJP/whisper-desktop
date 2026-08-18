@@ -63,14 +63,12 @@ jobs:
 
       - name: Build with PyInstaller (macOS .app)
         if: runner.os == 'macOS'
-        run: >
-          poetry run pyinstaller --windowed --onedir --name WhisperDesktop
-          --collect-all faster_whisper
-          --collect-all ctranslate2
-          --collect-all sounddevice
-          --collect-all scipy
-          --collect-all tkinter
-          main.py
+        run: poetry run pyinstaller WhisperDesktop.spec
+
+      - name: Verify macOS microphone permission key
+        if: runner.os == 'macOS'
+        shell: bash
+        run: plutil -p dist/WhisperDesktop.app/Contents/Info.plist | grep NSMicrophoneUsageDescription
 
       - name: Package macOS app bundle
         if: runner.os == 'macOS'

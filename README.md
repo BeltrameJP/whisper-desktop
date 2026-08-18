@@ -68,6 +68,8 @@ The easiest way to get Whisper Desktop is to grab a ready-made build from the [G
 On first run the app downloads a small speech model (~145 MB) so it can understand you. After that it works completely offline.
 
 > **macOS Gatekeeper:** releases are unsigned and not notarized. If macOS blocks the app on first launch, right-click it and choose **Open**, then confirm.
+>
+> **macOS microphone permission:** on first launch macOS asks for microphone access — click **Allow**. If you ever miss the prompt (or audio is silent), enable it manually under **System Settings → Privacy & Security → Microphone** for *Whisper Desktop*, then relaunch the app.
 
 ### For developers
 
